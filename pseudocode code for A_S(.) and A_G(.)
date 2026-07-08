@@ -1,0 +1,55 @@
+# ================================================================
+# SUPPRESSION / GENERALIZATION
+#   SUPPRESS   : remove or zero a coordinate/record         (drops a dimension)
+#   GENERALIZE : coarsen a coordinate's alphabet by binning (|alphabet| shrinks)
+# Both are many-to-one  =>  f non-injective  =>  I(B;S) <= I(A;S)
+# ================================================================
+
+function DEIDENTIFY_HEADER(record):
+    # SUPPRESS direct identifiers (name, MRN, SSN, technician, device serial)
+    for field in DIRECT_IDENTIFIERS:
+        record.header[field] <- NULL              # or a pseudonym token
+
+    # GENERALIZE quasi-identifiers so exact values cannot single a person out
+    record.header.birthdate <- NULL
+    record.header.age       <- bin(age, width = 5yr)        # 34  -> "30-34"
+    record.header.date      <- shift_by(subject_random_offset)   # jitter dates
+
+    # ENFORCE k-anonymity: no quasi-identifier combination rarer than k
+    while exists group g with count(g over quasi_identifiers) < k:
+        qi <- least-general quasi-identifier still splitting g
+        GENERALIZE qi one level               # age 5yr->10yr, region city->state
+    return record
+
+    function DROP_CHANNELS(X, keep_set):        # SUPPRESS whole sensors (spatial identity)
+    return X[keep_set, :]
+
+function DOWNSAMPLE(x, fs, fs_target):      # GENERALIZE temporal resolution
+    x <- antialias_lowpass(x, cutoff = fs_target / 2)
+    return x[:: fs / fs_target]
+
+function QUANTIZE(x, n_bits):               # GENERALIZE amplitude resolution
+    step <- (max(x) - min(x)) / 2^n_bits
+    return round(x / step) * step
+
+function CROP_OR_BLANK(x, mask):            # SUPPRESS identifying segments/artifacts
+    x[mask] <- 0
+    return x
+
+    function BAND_POWER_COARSEN(x, fs, BANDS):     # GENERALIZE 157 fine bins -> 4 numbers
+    P <- |rfft(x)|^2 / N                         # power spectrum, 1-40 Hz
+    b <- empty vector of length |BANDS|
+    for i, (lo, hi) in enumerate(BANDS):         # delta, theta, alpha, beta
+        b[i] <- log( sum( P[ lo <= f < hi ] ) + eps )   # integrate each band
+    return b
+    # peak LOCATION (identity) is averaged away;  band POWER (task) survives
+
+    function SUPPRESS_GENERALIZE(record):
+    record <- DEIDENTIFY_HEADER(record)                   # always first; lossless for signal
+    X <- record.signal
+    X <- DROP_CHANNELS(X, keep = task_relevant_montage)   # optional
+    for each channel x in X:
+        x <- DOWNSAMPLE(x, fs, fs_target)                 # optional
+        x <- QUANTIZE(x, n_bits)                          # optional
+    B <- [ BAND_POWER_COARSEN(x, fs, BANDS) for x in X ]  # the coarsening we ran
+    return B
