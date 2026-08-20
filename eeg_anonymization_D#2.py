@@ -6,7 +6,7 @@ Real-data counterpart of `eeg_anonymization.py`.
 The original tutorial ran on a *synthetic* EEG dataset where we knew,
 by construction, that identity lived in spectral-peak LOCATION and the
 clinical task lived in alpha AMPLITUDE.  This script runs the SAME
-anonymisation methods and the SAME privacy/utility evaluation on a real
+anonymization methods and the SAME privacy/utility evaluation on a real
 recording set: the PhysioNet "Auditory evoked potential EEG biometric"
 dataset stored in ./Raw_Data/.
 
